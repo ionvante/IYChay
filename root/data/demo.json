@@ -1,0 +1,151 @@
+{
+  "user": {
+    "name": "María Gonzales",
+    "role": "Directora académica"
+  },
+  "dashboard": {
+    "metrics": [
+      {
+        "id": "risk",
+        "title": "Riesgo académico",
+        "value": "12%",
+        "change": "-4% vs. mes anterior",
+        "trend": "positive",
+        "series": [18, 16, 15, 14, 13, 12]
+      },
+      {
+        "id": "engagement",
+        "title": "Engagement de familias",
+        "value": "87%",
+        "change": "+6% en 14 días",
+        "trend": "positive",
+        "series": [76, 78, 80, 82, 85, 87]
+      },
+      {
+        "id": "attendance",
+        "title": "Asistencia promedio",
+        "value": "93%",
+        "change": "-2% esta semana",
+        "trend": "negative",
+        "series": [96, 95, 95, 94, 93, 93]
+      },
+      {
+        "id": "ia-insights",
+        "title": "Alertas IA procesadas",
+        "value": "48",
+        "change": "+12 en 24h",
+        "trend": "positive",
+        "series": [20, 24, 28, 32, 40, 48]
+      }
+    ],
+    "insights": [
+      {
+        "type": "alert",
+        "message": "3 alumnos con riesgo de bajo rendimiento en Matemáticas"
+      },
+      {
+        "type": "success",
+        "message": "6 aulas con mejora sostenida en lectura comprensiva"
+      },
+      {
+        "type": "warning",
+        "message": "2 familias pendientes de pago en el ciclo Primaria"
+      }
+    ],
+    "grades": [
+      { "grade": "1º", "average": 7.8 },
+      { "grade": "2º", "average": 8.1 },
+      { "grade": "3º", "average": 7.2 },
+      { "grade": "4º", "average": 8.4 },
+      { "grade": "5º", "average": 8.0 }
+    ],
+    "classrooms": [
+      {
+        "name": "Primaria 1A",
+        "students": 28,
+        "tutors": 2,
+        "paymentStatus": 0.82,
+        "attendance": 0.94
+      },
+      {
+        "name": "Primaria 3B",
+        "students": 26,
+        "tutors": 1,
+        "paymentStatus": 0.91,
+        "attendance": 0.88
+      },
+      {
+        "name": "Secundaria 2C",
+        "students": 31,
+        "tutors": 2,
+        "paymentStatus": 0.74,
+        "attendance": 0.9
+      }
+    ]
+  },
+  "reports": [
+    {
+      "title": "Reporte IA - Matemáticas",
+      "updatedAt": "Hace 2 horas",
+      "owner": "Equipo de Analítica",
+      "trend": "Mejora de 6% en comprensión",
+      "actions": {
+        "view": "#",
+        "download": "#"
+      }
+    },
+    {
+      "title": "Reporte IA - Asistencia",
+      "updatedAt": "Hace 1 día",
+      "owner": "Equipo de Convivencia",
+      "trend": "Riesgo en 4 alumnos",
+      "actions": {
+        "view": "#",
+        "download": "#"
+      }
+    },
+    {
+      "title": "Reporte IA - Pagos",
+      "updatedAt": "Hace 3 días",
+      "owner": "Administración",
+      "trend": "Ingresos proyectados +8%",
+      "actions": {
+        "view": "#",
+        "download": "#"
+      }
+    }
+  ],
+  "notifications": {
+    "ia": [
+      {
+        "title": "Nuevo reporte IA disponible",
+        "description": "3 alumnos con mejoras en Matemáticas",
+        "time": "Hace 5 minutos"
+      },
+      {
+        "title": "Análisis predictivo",
+        "description": "1 alumno con riesgo de ausentismo",
+        "time": "Hace 18 minutos"
+      }
+    ],
+    "tasks": [
+      {
+        "title": "Revisar planes de apoyo",
+        "description": "Validar intervenciones para 1º A",
+        "time": "Vence hoy"
+      },
+      {
+        "title": "Enviar boletín mensual",
+        "description": "Programar envío a familias",
+        "time": "En 2 días"
+      }
+    ],
+    "messages": [
+      {
+        "title": "Coordinación Académica",
+        "description": "Confirmar reunión con tutores",
+        "time": "Hace 1 hora"
+      }
+    ]
+  }
+}
