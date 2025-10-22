@@ -151,7 +151,7 @@ function renderApp() {
       ${renderSidebar()}
       <main>
         ${renderTopBar()}
-        <div class="content" id="content" role="main">
+        <div class="content" id="content" role="main" tabindex="-1">
           ${renderContent()}
         </div>
       </main>
