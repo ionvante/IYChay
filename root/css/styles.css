@@ -819,6 +819,12 @@ main {
   box-shadow: var(--shadow-soft);
   display: grid;
   gap: 1.25rem;
+  outline: none;
+}
+
+.modal:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 4px;
 }
 
 .modal header {
