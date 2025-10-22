@@ -5,7 +5,8 @@ const state = {
   notificationsOpen: false,
   theme: localStorage.getItem('iy-theme') || 'dark',
   notificationTimer: null,
-  fabOpen: false
+  fabOpen: false,
+  sidebarOpen: false
 };
 
 const navigation = [
@@ -34,6 +35,10 @@ async function init() {
   applyTheme(state.theme);
   hydrateRouteFromHash();
   renderApp();
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', handleResponsiveSidebar);
+    window.addEventListener('keydown', handleGlobalKeydown);
+  }
   await loadData();
   renderApp();
   simulateNotifications();
@@ -84,11 +89,51 @@ function toggleTheme() {
   renderApp();
 }
 
+function toggleSidebar(force) {
+  const nextState = typeof force === 'boolean' ? force : !state.sidebarOpen;
+  if (state.sidebarOpen === nextState) {
+    return;
+  }
+  state.sidebarOpen = nextState;
+  if (nextState) {
+    state.notificationsOpen = false;
+  }
+  renderApp();
+}
+
+function handleResponsiveSidebar() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  if (window.innerWidth > 1024 && state.sidebarOpen) {
+    toggleSidebar(false);
+  }
+}
+
+function handleGlobalKeydown(event) {
+  if (event.key !== 'Escape') {
+    return;
+  }
+  let shouldRender = false;
+  if (state.sidebarOpen) {
+    state.sidebarOpen = false;
+    shouldRender = true;
+  }
+  if (state.notificationsOpen) {
+    state.notificationsOpen = false;
+    shouldRender = true;
+  }
+  if (shouldRender) {
+    renderApp();
+  }
+}
+
 function navigate(route) {
   if (!routeViews[route]) {
     route = 'dashboard';
   }
   state.currentRoute = route;
+  state.sidebarOpen = false;
   if (window.location.hash.replace('#', '') !== route) {
     window.location.hash = `#${route}`;
   }
@@ -112,24 +157,34 @@ function renderApp() {
       </main>
       ${renderNotificationPanel()}
     </div>
+    ${renderSidebarBackdrop()}
     ${renderFab()}
   `;
 
   container.innerHTML = layout;
   attachEventListeners();
+  if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+    document.body.classList.toggle('no-scroll', state.sidebarOpen && window.innerWidth <= 1024);
+  }
 }
 
 function renderSidebar() {
+  const sidebarClass = state.sidebarOpen ? 'sidebar open' : 'sidebar';
   return `
-    <aside class="sidebar" aria-label="Menu lateral">
-      <div class="brand">
-        <div class="brand-badge">
-          <span class="material-symbols-outlined">neurology</span>
+    <aside class="${sidebarClass}" aria-label="Menu lateral" id="app-sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <div class="brand-badge">
+            <span class="material-symbols-outlined">neurology</span>
+          </div>
+          <div>
+            <h1 data-i18n="brand.name">IYChay</h1>
+            <p data-i18n="brand.tagline">IA para colegios con visión</p>
+          </div>
         </div>
-        <div>
-          <h1 data-i18n="brand.name">IYChay</h1>
-          <p data-i18n="brand.tagline">IA para colegios con visión</p>
-        </div>
+        <button type="button" class="icon-button sidebar-close" id="sidebar-close" aria-label="Cerrar menú" aria-controls="app-sidebar">
+          <span class="material-symbols-outlined">close</span>
+        </button>
       </div>
       <nav class="nav-section">
         <h2 data-i18n="sidebar.title">Panel principal</h2>
@@ -163,12 +218,23 @@ function renderSidebar() {
   `;
 }
 
+function renderSidebarBackdrop() {
+  return `
+    <div class="sidebar-backdrop ${state.sidebarOpen ? 'visible' : ''}" id="sidebar-backdrop" aria-hidden="${!state.sidebarOpen}"></div>
+  `;
+}
+
 function renderTopBar() {
   const notificationCount = state.data
     ? Object.values(state.data.notifications).reduce((acc, arr) => acc + arr.length, 0)
     : 0;
+  const menuIcon = state.sidebarOpen ? 'close' : 'menu';
+  const menuLabel = state.sidebarOpen ? 'Cerrar menú' : 'Abrir menú';
   return `
     <header class="top-bar">
+      <button type="button" class="icon-button menu-toggle" id="menu-toggle" aria-label="${menuLabel}" aria-expanded="${state.sidebarOpen}" aria-controls="app-sidebar">
+        <span class="material-symbols-outlined">${menuIcon}</span>
+      </button>
       <div class="search-wrapper" role="search">
         <span class="material-symbols-outlined" aria-hidden="true">search</span>
         <input type="search" placeholder="Buscar alumno, aula o reporte" data-i18n="search.placeholder" />
@@ -610,6 +676,24 @@ function attachEventListeners() {
     });
   });
 
+  const menuToggle = document.getElementById('menu-toggle');
+  if (menuToggle) {
+    menuToggle.addEventListener('click', (event) => {
+      event.preventDefault();
+      toggleSidebar();
+    });
+  }
+
+  const sidebarClose = document.getElementById('sidebar-close');
+  if (sidebarClose) {
+    sidebarClose.addEventListener('click', () => toggleSidebar(false));
+  }
+
+  const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener('click', () => toggleSidebar(false));
+  }
+
   const themeToggle = document.getElementById('theme-toggle');
   if (themeToggle) {
     themeToggle.addEventListener('click', toggleTheme);
@@ -618,6 +702,9 @@ function attachEventListeners() {
   const notificationTrigger = document.getElementById('notification-trigger');
   if (notificationTrigger) {
     notificationTrigger.addEventListener('click', () => {
+      if (state.sidebarOpen) {
+        state.sidebarOpen = false;
+      }
       state.notificationsOpen = !state.notificationsOpen;
       renderApp();
     });
