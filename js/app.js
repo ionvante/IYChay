@@ -6,7 +6,10 @@ const state = {
   theme: localStorage.getItem('iy-theme') || 'dark',
   notificationTimer: null,
   fabOpen: false,
-  sidebarOpen: false
+  sidebarOpen: false,
+  modalTrigger: null,
+  modalElement: null,
+  modalKeydownHandler: null
 };
 
 const navigation = [
@@ -99,6 +102,31 @@ function toggleSidebar(force) {
     state.notificationsOpen = false;
   }
   renderApp();
+}
+
+function toggleFabMenu(force, options = {}) {
+  const shouldOpen = typeof force === 'boolean' ? force : !state.fabOpen;
+  if (state.fabOpen === shouldOpen) {
+    return;
+  }
+  state.fabOpen = shouldOpen;
+
+  const fabButton = document.getElementById('fab');
+  const fabMenu = document.getElementById('fab-menu');
+  if (!fabButton || !fabMenu) {
+    return;
+  }
+
+  fabMenu.classList.toggle('open', shouldOpen);
+  fabMenu.setAttribute('aria-hidden', String(!shouldOpen));
+  fabButton.setAttribute('aria-expanded', String(shouldOpen));
+
+  if (shouldOpen) {
+    const items = getFocusableElements(fabMenu);
+    items[0]?.focus({ preventScroll: true });
+  } else if (!options.skipFocus) {
+    fabButton.focus({ preventScroll: true });
+  }
 }
 
 function handleResponsiveSidebar() {
@@ -647,14 +675,14 @@ function renderNotificationCategory(category) {
 function renderFab() {
   return `
     <div>
-      <button class="fab" id="fab" aria-label="Acciones rápidas">
+      <button class="fab" id="fab" aria-label="Acciones rápidas" aria-controls="fab-menu" aria-expanded="${state.fabOpen}" aria-haspopup="true">
         <span class="material-symbols-outlined">add</span>
       </button>
-      <div class="fab-menu" id="fab-menu" aria-hidden="${!state.fabOpen}">
+      <div class="fab-menu" id="fab-menu" aria-hidden="${!state.fabOpen}" role="menu">
         ${fabActions
           .map(
             (action) => `
-              <button type="button" data-action="${action.id}">
+              <button type="button" data-action="${action.id}" role="menuitem">
                 <span class="material-symbols-outlined">${action.icon}</span>
                 <span>${action.label}</span>
               </button>
@@ -722,7 +750,7 @@ function attachEventListeners() {
   if (demoButton) {
     demoButton.addEventListener('click', (event) => {
       event.preventDefault();
-      openModal('demo');
+      openModal('demo', event.currentTarget);
     });
   }
 
@@ -730,17 +758,48 @@ function attachEventListeners() {
   const fabMenu = document.getElementById('fab-menu');
   if (fabButton && fabMenu) {
     fabButton.addEventListener('click', () => {
-      state.fabOpen = !state.fabOpen;
-      fabMenu.classList.toggle('open', state.fabOpen);
-      fabMenu.setAttribute('aria-hidden', String(!state.fabOpen));
+      toggleFabMenu();
+    });
+
+    fabButton.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (!state.fabOpen) {
+          toggleFabMenu(true);
+        }
+        const items = getFocusableElements(fabMenu);
+        items[0]?.focus({ preventScroll: true });
+      }
+      if (event.key === 'Escape' && state.fabOpen) {
+        event.preventDefault();
+        toggleFabMenu(false);
+      }
     });
 
     fabMenu.querySelectorAll('button').forEach((button) => {
       button.addEventListener('click', () => {
-        openModal(button.dataset.action);
-        state.fabOpen = false;
-        fabMenu.classList.remove('open');
-        fabMenu.setAttribute('aria-hidden', 'true');
+        openModal(button.dataset.action, button);
+        toggleFabMenu(false, { skipFocus: true });
+      });
+
+      button.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          toggleFabMenu(false);
+          return;
+        }
+
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          const items = getFocusableElements(fabMenu);
+          if (!items.length) {
+            return;
+          }
+          const currentIndex = items.indexOf(button);
+          const delta = event.key === 'ArrowDown' ? 1 : -1;
+          const nextIndex = (currentIndex + delta + items.length) % items.length;
+          items[nextIndex]?.focus({ preventScroll: true });
+        }
       });
     });
   }
@@ -785,17 +844,42 @@ function renderPerformanceChart(grades) {
   `;
 }
 
-function openModal(type) {
+function openModal(type, triggerElement) {
   const modalRoot = document.getElementById('modal-root');
   if (!modalRoot) return;
 
+  const fallbackTrigger = typeof document !== 'undefined' ? document.activeElement : null;
+  const focusSource =
+    triggerElement && typeof triggerElement.focus === 'function'
+      ? triggerElement
+      : fallbackTrigger;
+  state.modalTrigger =
+    focusSource instanceof HTMLElement && typeof focusSource.focus === 'function' ? focusSource : null;
+
+  const titleId = `modal-${type}-title`;
+  const descriptionId = `modal-${type}-description`;
+
   modalRoot.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true">
-      <div class="modal">
-        ${renderModalContent(type)}
+    <div class="modal-backdrop">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="${titleId}" aria-describedby="${descriptionId}" tabindex="-1">
+        ${renderModalContent(type, titleId, descriptionId)}
       </div>
     </div>
   `;
+
+  const modalBackdrop = modalRoot.querySelector('.modal-backdrop');
+  if (modalBackdrop) {
+    modalBackdrop.addEventListener('click', (event) => {
+      if (event.target === modalBackdrop) {
+        closeModal();
+      }
+    });
+  }
+
+  const modal = modalRoot.querySelector('.modal');
+  if (modal instanceof HTMLElement) {
+    setupModalFocusTrap(modal);
+  }
 
   const closeButton = modalRoot.querySelector('[data-close]');
   closeButton?.addEventListener('click', closeModal);
@@ -812,7 +896,7 @@ function openModal(type) {
   });
 }
 
-function renderModalContent(type) {
+function renderModalContent(type, titleId, descriptionId) {
   const titles = {
     classroom: 'Crear aula',
     student: 'Registrar alumno',
@@ -941,8 +1025,8 @@ function renderModalContent(type) {
   return `
     <header>
       <div>
-        <h2>${titles[type]}</h2>
-        <p>${descriptions[type]}</p>
+        <h2 id="${titleId}">${titles[type]}</h2>
+        <p id="${descriptionId}">${descriptions[type]}</p>
       </div>
       <button type="button" data-close aria-label="Cerrar modal">
         <span class="material-symbols-outlined">close</span>
@@ -963,8 +1047,36 @@ function renderModalContent(type) {
 
 function closeModal() {
   const modalRoot = document.getElementById('modal-root');
+  if (state.modalElement && state.modalKeydownHandler) {
+    state.modalElement.removeEventListener('keydown', state.modalKeydownHandler);
+  }
+  state.modalElement = null;
+  state.modalKeydownHandler = null;
+
   if (modalRoot) {
     modalRoot.innerHTML = '';
+  }
+
+  const trigger = state.modalTrigger;
+  state.modalTrigger = null;
+  if (!trigger || typeof trigger.focus !== 'function') {
+    return;
+  }
+
+  const fabMenu = document.getElementById('fab-menu');
+  const fabButton = document.getElementById('fab');
+  const shouldFocusFabButton =
+    fabMenu?.contains(trigger) && (!state.fabOpen || fabMenu.getAttribute('aria-hidden') === 'true');
+
+  if (shouldFocusFabButton && fabButton) {
+    fabButton.focus({ preventScroll: true });
+    return;
+  }
+
+  if (trigger.isConnected) {
+    trigger.focus({ preventScroll: true });
+  } else if (fabButton) {
+    fabButton.focus({ preventScroll: true });
   }
 }
 
@@ -1021,4 +1133,106 @@ function simulateNotifications() {
     const next = queue[index];
     pushToast({ icon: next.icon, title: next.title, description: next.description });
   }, 8000);
+}
+
+function setupModalFocusTrap(modal) {
+  if (!(modal instanceof HTMLElement)) {
+    return;
+  }
+
+  state.modalElement = modal;
+
+  const focusInitialElement = () => {
+    const focusable = getFocusableElements(modal);
+    const target = focusable[0] || modal;
+    if (typeof target.focus === 'function') {
+      target.focus({ preventScroll: true });
+    }
+  };
+
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(focusInitialElement);
+  } else {
+    focusInitialElement();
+  }
+
+  const handleKeydown = (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeModal();
+      return;
+    }
+
+    if (event.key !== 'Tab') {
+      return;
+    }
+
+    const focusableElements = getFocusableElements(modal);
+    if (!focusableElements.length) {
+      event.preventDefault();
+      modal.focus({ preventScroll: true });
+      return;
+    }
+
+    const first = focusableElements[0];
+    const last = focusableElements[focusableElements.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus({ preventScroll: true });
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus({ preventScroll: true });
+    }
+  };
+
+  modal.addEventListener('keydown', handleKeydown);
+  state.modalKeydownHandler = handleKeydown;
+}
+
+function getFocusableElements(container) {
+  if (!container) {
+    return [];
+  }
+
+  const selector = [
+    'a[href]',
+    'area[href]',
+    'button:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])'
+  ].join(',');
+
+  const elements = Array.from(container.querySelectorAll(selector));
+
+  return elements.filter((element) => {
+    if (element.hasAttribute('disabled')) {
+      return false;
+    }
+    if (element.getAttribute('aria-hidden') === 'true') {
+      return false;
+    }
+    if (typeof element.closest === 'function' && element.closest('[aria-hidden="true"]')) {
+      return false;
+    }
+
+    if (typeof window !== 'undefined') {
+      const styles = window.getComputedStyle(element);
+      if (styles.display === 'none' || styles.visibility === 'hidden') {
+        return false;
+      }
+    }
+
+    if (typeof element.getBoundingClientRect === 'function') {
+      const rect = element.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        return false;
+      }
+    }
+
+    return true;
+  });
 }
